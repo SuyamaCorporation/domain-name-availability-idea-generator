@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Domain Name Idea Generator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen p-4">
+<div class="max-w-4xl mx-auto">
+  <h1 class="text-2xl font-bold mb-1 text-indigo-400">Domain Name Idea Generator</h1>
+  <p class="text-sm text-gray-400 mb-5">Generate domain name ideas from your keywords. No live DNS lookup — visual suggestions only.</p>
+
+  <!-- Input -->
+  <div class="bg-gray-800 rounded-xl p-5 mb-5">
+    <div class="flex flex-wrap gap-3 items-end">
+      <div class="flex-1 min-w-48">
+        <label for="kw1" class="block text-xs text-gray-400 mb-1">Keyword 1 (required)</label>
+        <input id="kw1" type="text" placeholder="e.g. swift" maxlength="30"
+          class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+      </div>
+      <div class="flex-1 min-w-48">
+        <label for="kw2" class="block text-xs text-gray-400 mb-1">Keyword 2 (optional)</label>
+        <input id="kw2" type="text" placeholder="e.g. ship" maxlength="30"
+          class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+      </div>
+      <div class="flex-1 min-w-48">
+        <label for="kw3" class="block text-xs text-gray-400 mb-1">Keyword 3 (optional)</label>
+        <input id="kw3" type="text" placeholder="e.g. pro" maxlength="30"
+          class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+      </div>
+      <button onclick="generate()"
+        class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded font-semibold text-sm transition-colors">
+        Generate
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter -->
+  <div id="filterRow" class="hidden flex flex-wrap gap-2 items-center mb-4">
+    <span class="text-xs text-gray-400">Filter type:</span>
+    <button onclick="setFilter('all')" data-filter="all"
+      class="filter-btn text-xs px-3 py-1 rounded-full bg-indigo-700 text-white">All</button>
+    <button onclick="setFilter('direct')" data-filter="direct"
+      class="filter-btn text-xs px-3 py-1 rounded-full bg-gray-700 text-gray-300 hover:bg-gray-600">Direct</button>
+    <button onclick="setFilter('prefix')" data-filter="prefix"
+      class="filter-btn text-xs px-3 py-1 rounded-full bg-gray-700 text-gray-300 hover:bg-gray-600">Prefix</button>
+    <button onclick="setFilter('suffix')" data-filter="suffix"
+      class="filter-btn text-xs px-3 py-1 rounded-full bg-gray-700 text-gray-300 hover:bg-gray-600">Suffix</button>
+    <button onclick="setFilter('compound')" data-filter="compound"
+      class="filter-btn text-xs px-3 py-1 rounded-full bg-gray-700 text-gray-300 hover:bg-gray-600">Compound</button>
+    <button onclick="setFilter('abbrev')" data-filter="abbrev"
+      class="filter-btn text-xs px-3 py-1 rounded-full bg-gray-700 text-gray-300 hover:bg-gray-600">Abbrev</button>
+    <span class="ml-auto text-xs text-gray-500" id="resultCount"></span>
+  </div>
+
+  <!-- Table -->
+  <div id="resultsSection" class="hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-800 text-gray-400 text-xs">
+          <tr>
+            <th class="text-left px-3 py-2">Name</th>
+            <th class="text-center px-2 py-2">Type</th>
+            <th class="text-center px-2 py-2">.com</th>
+            <th class="text-center px-2 py-2">.io</th>
+            <th class="text-center px-2 py-2">.app</th>
+            <th class="text-center px-2 py-2">.co</th>
+            <th class="text-center px-2 py-2">Copy</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="copyNotice" class="fixed bottom-4 right-4 bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm hidden shadow-lg">
+    Copied to clipboard!
+  </div>
+</div>
+
+<script>
+function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+let allResults = [];
+let activeFilter = 'all';
+
+function clean(s) {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function capitalize(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function generate() {
+  const raw = [
+    document.getElementById('kw1').value.trim(),
+    document.getElementById('kw2').value.trim(),
+    document.getElementById('kw3').value.trim(),
+  ].filter(Boolean);
+
+  if (raw.length === 0) return;
+
+  const kws = raw.map(clean).filter(Boolean);
+  if (kws.length === 0) return;
+
+  const k1 = kws[0];
+  const k2 = kws[1] || '';
+  const k3 = kws[2] || '';
+  const all = kws.join('');
+  const joined = kws.join('');
+
+  const prefixes = ['get', 'my', 'use', 'go', 'try', 'the', 'hey', 'join'];
+  const suffixes = ['app', 'io', 'hq', 'ly', 'hub', 'lab', 'co', 'ai', 'pro', 'now'];
+
+  const suggestions = [];
+  const seen = new Set();
+
+  function add(name, type) {
+    const n = clean(name);
+    if (!n || n.length < 2 || seen.has(n)) return;
+    seen.add(n);
+    suggestions.push({ name: n, type });
+  }
+
+  // Direct
+  add(k1, 'direct');
+  if (k2) add(k2, 'direct');
+  if (k3) add(k3, 'direct');
+  if (k1 && k2) add(k1 + k2, 'direct');
+  if (k1 && k2 && k3) add(k1 + k2 + k3, 'direct');
+
+  // CamelCase compound
+  if (k2) add(k1 + capitalize(k2), 'compound');
+  if (k3) add(k1 + capitalize(k2) + capitalize(k3), 'compound');
+  if (k2 && k3) add(k2 + capitalize(k3), 'compound');
+  if (k1 && k2) add(k2 + capitalize(k1), 'compound');
+
+  // Abbreviation: first letters
+  if (kws.length >= 2) add(kws.map(w => w[0]).join(''), 'abbrev');
+  if (kws.length >= 2) add(kws.map(w => w.slice(0, 2)).join(''), 'abbrev');
+  if (k1.length > 4) add(k1.slice(0, 4), 'abbrev');
+  if (k2.length > 4) add(k2.slice(0, 4), 'abbrev');
+  if (k1 && k2) add(k1.slice(0, 3) + k2.slice(0, 3), 'abbrev');
+  if (k1 && k2) add(k1.slice(0, 2) + k2, 'abbrev');
+
+  // Prefixes
+  prefixes.forEach(p => {
+    add(p + k1, 'prefix');
+    if (k2) add(p + k2, 'prefix');
+    if (k1 && k2) add(p + k1 + k2, 'prefix');
+  });
+
+  // Suffixes
+  suffixes.forEach(s => {
+    add(k1 + s, 'suffix');
+    if (k2) add(k2 + s, 'suffix');
+    if (k1 && k2) add(k1 + k2 + s, 'suffix');
+    if (k1 && k2 && k3) add(k1 + k2 + k3 + s, 'suffix');
+  });
+
+  // Extra combos
+  if (k2) add(k1 + k2 + 'hq', 'suffix');
+  if (k1) add(k1 + '360', 'suffix');
+  if (k1) add(k1 + 'base', 'suffix');
+  if (k1 && k2) add(k1 + 'for' + k2, 'compound');
+
+  allResults = suggestions.slice(0, 50);
+  activeFilter = 'all';
+  document.getElementById('filterRow').classList.remove('hidden');
+  document.getElementById('resultsSection').classList.remove('hidden');
+  renderTable();
+  setFilter('all');
+}
+
+const exts = ['.com', '.io', '.app', '.co'];
+const extClasses = [
+  'bg-green-900 text-green-300',
+  'bg-blue-900 text-blue-300',
+  'bg-purple-900 text-purple-300',
+  'bg-yellow-900 text-yellow-300',
+];
+const typeColors = {
+  direct:   'bg-gray-700 text-gray-300',
+  compound: 'bg-indigo-900 text-indigo-300',
+  abbrev:   'bg-orange-900 text-orange-300',
+  prefix:   'bg-teal-900 text-teal-300',
+  suffix:   'bg-pink-900 text-pink-300',
+};
+
+function setFilter(f) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    const active = b.dataset.filter === f;
+    b.className = 'filter-btn text-xs px-3 py-1 rounded-full ' +
+      (active ? 'bg-indigo-700 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600');
+  });
+  renderTable();
+}
+
+function renderTable() {
+  const filtered = activeFilter === 'all' ? allResults : allResults.filter(r => r.type === activeFilter);
+  document.getElementById('resultCount').textContent = filtered.length + ' names';
+
+  const tbody = document.getElementById('resultsBody');
+  tbody.innerHTML = '';
+
+  filtered.forEach((item, i) => {
+    const tr = document.createElement('tr');
+    tr.className = i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800';
+
+    // Name
+    const tdName = document.createElement('td');
+    tdName.className = 'px-3 py-2 font-mono font-bold text-white';
+    tdName.textContent = item.name;
+    tr.appendChild(tdName);
+
+    // Type badge
+    const tdType = document.createElement('td');
+    tdType.className = 'px-2 py-2 text-center';
+    const badge = document.createElement('span');
+    badge.className = 'text-xs px-2 py-0.5 rounded-full ' + (typeColors[item.type] || 'bg-gray-700 text-gray-300');
+    badge.textContent = item.type;
+    tdType.appendChild(badge);
+    tr.appendChild(tdType);
+
+    // Extension columns
+    exts.forEach((ext, ei) => {
+      const td = document.createElement('td');
+      td.className = 'px-2 py-2 text-center';
+      const chip = document.createElement('span');
+      chip.className = 'text-xs px-2 py-0.5 rounded font-mono ' + extClasses[ei];
+      chip.textContent = item.name + ext;
+      td.appendChild(chip);
+      tr.appendChild(td);
+    });
+
+    // Copy button
+    const tdCopy = document.createElement('td');
+    tdCopy.className = 'px-2 py-2 text-center';
+    const btn = document.createElement('button');
+    btn.className = 'text-xs bg-gray-600 hover:bg-indigo-600 px-2 py-1 rounded transition-colors';
+    btn.textContent = 'Copy';
+    btn.setAttribute('aria-label', 'Copy ' + item.name);
+    btn.addEventListener('click', () => copyName(item.name));
+    tdCopy.appendChild(btn);
+    tr.appendChild(tdCopy);
+
+    tbody.appendChild(tr);
+  });
+}
+
+function copyName(name) {
+  navigator.clipboard.writeText(name).then(() => {
+    const n = document.getElementById('copyNotice');
+    n.classList.remove('hidden');
+    clearTimeout(window._copyTimer);
+    window._copyTimer = setTimeout(() => n.classList.add('hidden'), 1800);
+  });
+}
+
+// Enter key
+['kw1','kw2','kw3'].forEach(id =>
+  document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') generate(); }));
+</script>
+</body>
+</html>
